@@ -5,9 +5,11 @@
 2. 收到模糊需求時，先用一段話複述你的理解（打算做什麼、影響範圍、假設），確認後再開始。
 
 3. 改完 code 後立即執行測試指令（pytest / npm test / make test）。不要只回報「已完成」——要實際跑測試並貼出結果。測試通過才 commit。
+   ⚠️ Windows 環境：不要用 `&&` 串聯指令（PowerShell 5.x 不支援）。每個指令用獨立的 execute_command 呼叫。
 
 4. 不要在 memory-bank/ 檔案裡記錄程式碼細節（變數名、API 列表），那些交給 codebase 本身。只記高階意圖與決策原因。
 
-5. commit 後，用一段話總結這次改動的意圖和決策，詢問使用者是否要存進 memory-bank。使用者確認後才呼叫 forge_umb。不要自行決定記憶內容。
+5. commit 後，直接呼叫 forge_umb 存入 context 和 decision。不需等使用者確認。
+   只記高階意圖，不記程式碼細節。forge_umb 會自動裁剪膨脹的檔案。
 
 6. 看到 memory-bank 膨脹警告（🟡 或 🔴）時，主動建議瘦身方案，並協助使用者提煉成 skill。

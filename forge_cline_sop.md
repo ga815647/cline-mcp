@@ -52,8 +52,7 @@
 
 ③ 收尾
    git add + commit（Cline 做或你做）
-   Opus 自動總結改動，詢問是否存進 memory-bank
-   你確認 → Opus 呼叫 forge_umb
+   Opus 自動呼叫 forge_umb 存記憶（無需確認）
    ↓
    ├─ 還有下一個任務 → 回最上面
    └─ 收工
@@ -65,8 +64,8 @@
 
 | Tool | 功能 | 何時呼叫 |
 |------|------|--------|
-| `forge_health` | 檢查 memory-bank 狀態 + 膨脹警告 | 對話開始（Opus 自動） |
-| `forge_umb` | 更新 memory-bank（context / decision / pattern） | commit 後，使用者確認 |
+| `forge_health` | 檢查設定 + memory-bank 狀態 + 膨脹警告 | 對話開始（Opus 自動） |
+| `forge_umb` | 更新 memory-bank（自動裁剪） | commit 後（Opus 自動） |
 | `forge_lessons` | 分析 systemPatterns.md，找重複關鍵詞 | 想提煉經驗成 skill 時 |
 | `forge_init` | 初始化 memory-bank + skills + .clinerules | 第一次使用 |
 | `forge_clean` | 清理 .tmp 殘留 | 偶爾清一下 |

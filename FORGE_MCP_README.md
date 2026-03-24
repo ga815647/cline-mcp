@@ -2,15 +2,22 @@
 
 讓 Cline 直接呼叫 forge 功能，不用跳出去跑終端機。
 
+## 核心特性
+
+- **無腦自動化**：commit 後自動存記憶，無需確認
+- **自動瘦身**：decisionLog 超過 50 行自動裁剪
+- **膨脹提醒**：systemPatterns 等檔案膨脹時提醒手動介入
+- **設定檢查**：每次對話開始自動檢查是否完成初始化
+
 ## 它做什麼
 
 ```
 之前：                              現在：
 Cline 做完事                        Cline 做完事
-  → 你跳出 Cline                     → Cline 呼叫 forge_umb
+  → 你跳出 Cline                     → Cline 自動呼叫 forge_umb
   → 開終端機                           → Python 寫磁碟
   → python forge.py umb                → 不離開 Cline
-  → 打三個答案
+  → 打三個答案                         → 記憶自動存
   → 關終端機
   → 回 Cline
 ```
@@ -19,34 +26,29 @@ Cline 做完事                        Cline 做完事
 
 | Tool | 功能 | 何時用 |
 |------|------|-------|
-| `forge_health` | 回傳 memory-bank 狀態 + 膨脹警告 | 對話開始（Opus 自動） |
+| `forge_health` | 檢查設定 + memory-bank 狀態 + 膨脹警告 | 對話開始（自動） |
 | `forge_lessons` | 分析 systemPatterns.md | 想提煉經驗成 skill 時 |
-| `forge_umb` | 更新 memory-bank（context / decision / pattern）| commit 後，使用者確認 |
+| `forge_umb` | 更新 memory-bank（自動裁剪） | commit 後（自動） |
 | `forge_init` | 初始化 memory-bank + skills + .clinerules | 第一次使用 |
 | `forge_clean` | 清理 .tmp 殘留 | 偶爾清一下 |
 
-## 安裝
+---
 
-### 1. 裝 MCP SDK
+## 新專案快速啟動（3 步）
 
-```bash
-pip install mcp
-```
+### Step 1：複製 forge_mcp.py
 
-### 2. 放 forge_mcp.py
-
-把 `forge_mcp.py` 放到你的專案根目錄：
+把 `forge_mcp.py` 複製到你的新專案根目錄：
 
 ```
 your-project/
-├── forge_mcp.py       ← MCP Server
-├── memory-bank/
-├── skills/
-├── .clinerules
+├── forge_mcp.py       ← 複製這個檔案
+├── src/
+├── tests/
 └── ...
 ```
 
-### 3. 設定 Cline MCP
+### Step 2：設定 Cline MCP
 
 編輯 Cline 的 MCP 設定檔：
 
@@ -60,7 +62,7 @@ your-project/
 ~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
 ```
 
-加入以下設定：
+加入以下設定（改 `cwd` 為你的專案路徑）：
 
 ```json
 {
@@ -68,105 +70,122 @@ your-project/
     "forge": {
       "command": "python",
       "args": ["forge_mcp.py"],
-      "cwd": "f:/Programs/forge_light",
+      "cwd": "你的專案路徑",
       "disabled": false,
-      "autoApprove": []
+      "autoApprove": ["forge_health", "forge_umb", "forge_lessons", "forge_clean"]
     }
   }
 }
 ```
 
-⚠️ **`cwd` 必須是你的專案根目錄**（memory-bank/ 所在位置）。
+⚠️ **重要：**
+- `cwd` 必須是你的專案根目錄（forge_mcp.py 所在位置）
+- `autoApprove` 必須包含這 4 個 tool，否則會一直彈確認框
 
-### 4. 驗證
+### Step 3：初始化
 
 在 Cline 裡說：「初始化 Forge」
 
-Cline 應該會呼叫 `forge_init` 並回傳：
+Cline 會自動：
+- ✅ 建立 `memory-bank/`（6 個 .md 檔）
+- ✅ 建立 `skills/`
+- ✅ 建立 `.clinerules`（B+ 自動記憶版本）
 
 ```
-✅ 建立 memory-bank/activeContext.md
-✅ 建立 memory-bank/progress.md
-✅ 建立 memory-bank/systemPatterns.md
-✅ 建立 memory-bank/productContext.md
-✅ 建立 memory-bank/decisionLog.md
-✅ 建立 memory-bank/techContext.md
-✅ 建立 .clinerules（MCP-native 版本）
-
 🎉 初始化完成。Cline 已準備好使用 Forge MCP。
 ```
 
-## 使用方式
+**完成！** 之後每次對話 Cline 會自動：
+1. 對話開始 → 呼叫 forge_health 檢查狀態
+2. commit 後 → 呼叫 forge_umb 自動存記憶
 
-### forge_init — 第一次初始化
+---
 
-```
-你：「初始化 Forge」
-Opus → 呼叫 forge_init()
-→ 建立 memory-bank/ + skills/ + .clinerules
-→ 🎉 完成
-```
+## 日常使用
 
-### forge_health — 對話開始自動檢查
-
-`.clinerules` 第 1 條會讓 Opus 自動呼叫：
+### 對話開始（自動）
 
 ```
-Opus（自動）：「檢查 memory-bank 狀態...」
-→ 🟢 activeContext.md: 12 行
-→ 🟢 decisionLog.md: 45 行
-→ 🟢 systemPatterns.md: 22 行
-→ 🟢 總計約 720 token
+Cline（自動）：「檢查 memory-bank 狀態...」
+
+=== 設定檢查 ===
+✅ memory-bank/ 存在
+✅ 6 個記憶檔案完整
+✅ .clinerules 存在
+✅ skills/ 存在
+✅ 所有設定完成
+
+=== Memory Bank 狀態 ===
+🟢 activeContext.md: 12 行
+🟢 decisionLog.md: 45 行
+🟢 systemPatterns.md: 22 行
+🟢 總計約 720 token
 ```
 
-或者你手動說「檢查 memory」，Opus 會呼叫 `forge_health`。
-
-### forge_umb — 存記憶（最重要的 tool）
-
-**正確流程：你確認後 Opus 才呼叫。**
+### commit 後（自動）
 
 ```
 你：「commit 了」
-Opus（自動）：「這次改動：完成 SAML metadata parser，用 lxml 處理 namespace。
-              要存進 memory-bank 嗎？」
-你：「存」
-Opus → 呼叫 forge_umb(
-    context="SAML 整合，metadata parser 完成",
-    decision="用 lxml 而非 xml.etree，原因是要處理 XML namespace"
-)
-→ ✅ activeContext.md 已更新
-→ ✅ decisionLog.md 已追加
+Cline（自動）：「存記憶...」
+  → 呼叫 forge_umb(context="...", decision="...")
+  → ✅ activeContext.md 已更新
+  → ✅ decisionLog.md 已追加
+  → （如果超過 50 行）🔄 decisionLog.md 已自動裁剪到 50 行
 ```
 
-**三個參數都是 optional：**
+**你不用做任何事。** 記憶自動存。
 
-| 參數 | 寫入 | 方式 | 什麼時候用 |
-|------|------|------|----------|
-| `context` | activeContext.md | 覆寫 | 「現在在忙什麼」變了 |
-| `decision` | decisionLog.md | 追加 | 做了重要決定 |
-| `pattern` | systemPatterns.md | 追加 | 踩到坑或發現規範 |
+### 膨脹提醒（自動）
 
-### forge_lessons — 提煉經驗
+如果 `systemPatterns.md` 膨脹：
 
 ```
-你：「跑 lessons 看看有什麼值得提煉」
-Opus → 呼叫 forge_lessons()
+🧹 瘦身建議：
+
+⚠️ 需要手動介入：
+  systemPatterns.md → 跑 forge_lessons，提煉成 skill
+```
+
+Cline 會主動問你要不要處理。
+
+---
+
+## 進階：forge_umb 參數
+
+如果你想手動呼叫 forge_umb（通常不需要），三個參數都是 optional：
+
+| 參數 | 寫入 | 方式 | 例子 |
+|------|------|------|------|
+| `context` | activeContext.md | 覆寫 | `context="正在做 SAML 整合"` |
+| `decision` | decisionLog.md | 追加 + 自動裁剪 | `decision="用 lxml 處理 XML namespace"` |
+| `pattern` | systemPatterns.md | 追加 | `pattern="Error handling: 用 retry decorator"` |
+
+---
+
+## 進階：提煉 Skill
+
+當 memory-bank 膨脹時，Cline 會建議提煉成 skill。流程：
+
+```
+Cline：「systemPatterns.md 有 150 行，建議提煉。」
+你：「跑 lessons 看看」
+Cline → 呼叫 forge_lessons()
 → 📊 重複關鍵詞：error handling (5次), retry (4次), ...
 → 📋 Pattern 標題：[Error Handling], [Retry Logic], ...
-→ 💡 這些值得寫成 skill 嗎？
+
+你：「寫個 skill 叫 error-handling.md」
+Cline：「好，我寫進 skills/error-handling.md，然後刪掉 systemPatterns.md 裡的相關內容」
+你：「確認」
+Cline → 建立 skills/error-handling.md + 更新 systemPatterns.md
 ```
 
-### forge_clean — 清 .tmp
+Skill 會自動注入到每次對話的上下文，Cline 就會記住這些規則。
 
-```
-你：「清一下 tmp」
-Opus → 呼叫 forge_clean()
-→ 🧹 清掉 3 個 .tmp 檔案
-```
+---
 
-## .clinerules 完整版（MCP-native）
+## .clinerules 完整版（B+ 自動記憶版本）
 
-`forge_init` 會自動建立這個版本：
+`forge_init` 會自動建立：
 
 ```
 # Forge Rules for Cline
@@ -183,68 +202,83 @@ Opus → 呼叫 forge_clean()
 4. 不要在 memory-bank/ 檔案裡記錄程式碼細節（變數名、API 列表），
    那些交給 codebase 本身。只記高階意圖與決策原因。
 
-5. commit 後，用一段話總結這次改動的意圖和決策，詢問使用者是否要存進 memory-bank。
-   使用者確認後才呼叫 forge_umb。不要自行決定記憶內容。
+5. commit 後，直接呼叫 forge_umb 存入 context 和 decision。不需等使用者確認。
+   只記高階意圖，不記程式碼細節。forge_umb 會自動裁剪膨脹的檔案。
 
 6. 看到 memory-bank 膨脹警告（🟡 或 🔴）時，主動建議瘦身方案，
    並協助使用者提煉成 skill。
 ```
 
-## 安全設計
-
-| 疑慮 | 設計 |
-|------|------|
-| Cline 會不會亂寫記憶？ | forge_umb 的 docstring 明確寫「呼叫前先跟使用者確認」+ .clinerules 第 5 條強化 |
-| 寫錯了怎麼辦？ | memory-bank/ 是純文字，git diff 看得到，git checkout 還原 |
-| MCP Server 會不會呼叫 LLM？ | 不會。forge_mcp.py 全部是 Path.read_text / write_text，零 API 呼叫 |
+---
 
 ## 故障排除
 
-**Q: Cline 說找不到 forge MCP server？**
-確認 `cwd` 路徑正確，且 `forge_mcp.py` 在那個目錄裡。在終端機 `cd` 到那個目錄跑 `python forge_mcp.py` 看有沒有 error。
+**Q: forge_health 說設定不完整？**
 
-**Q: forge_health 回傳「memory-bank/ 不存在」？**
-先呼叫 `forge_init`。
+檢查：
+1. `cwd` 路徑是否正確（應該是 forge_mcp.py 所在目錄）
+2. `autoApprove` 是否包含 4 個 tool
+3. 重啟 Cline
+
+**Q: forge_health 說 memory-bank/ 不存在？**
+
+在 Cline 裡說「初始化 Forge」，Cline 會呼叫 forge_init。
 
 **Q: forge_umb 存了我不想要的內容？**
-`git diff memory-bank/` 看改了什麼，`git checkout memory-bank/` 還原。memory-bank 是純文字，完全在 git 控制下。
+
+```bash
+git diff memory-bank/     # 看改了什麼
+git checkout memory-bank/ # 還原
+```
+
+memory-bank 是純文字，完全在 git 控制下。
 
 **Q: Windows 上 python 找不到？**
-把 `"command": "python"` 改成 `"command": "python3"` 或完整路徑 `"command": "C:/Python312/python.exe"`。
+
+把 `"command": "python"` 改成：
+- `"command": "python3"` 或
+- `"command": "C:/Python312/python.exe"`（完整路徑）
 
 **Q: 多個專案怎麼辦？**
-每個專案自己的 `forge_mcp.py` + 自己的 MCP config `cwd`。切專案時 Cline 會載入對應的 MCP server。
 
-## 進階：提煉 Skill
+每個專案自己的 MCP config：
 
-當 memory-bank 膨脹時，Opus 會建議提煉成 skill。流程：
-
+```json
+{
+  "mcpServers": {
+    "forge_project1": {
+      "command": "python",
+      "args": ["forge_mcp.py"],
+      "cwd": "C:/path/to/project1",
+      "autoApprove": ["forge_health", "forge_umb", "forge_lessons", "forge_clean"]
+    },
+    "forge_project2": {
+      "command": "python",
+      "args": ["forge_mcp.py"],
+      "cwd": "C:/path/to/project2",
+      "autoApprove": ["forge_health", "forge_umb", "forge_lessons", "forge_clean"]
+    }
+  }
+}
 ```
-Opus：「systemPatterns.md 有 150 行，建議提煉。」
-你：「跑 lessons 看看」
-Opus → 呼叫 forge_lessons()
-→ 📊 重複關鍵詞：error handling (5次), retry (4次), ...
-→ 📋 Pattern 標題：[Error Handling], [Retry Logic], ...
 
-你：「寫個 skill 叫 error-handling.md」
-Opus：「好，我寫進 skills/error-handling.md，然後刪掉 systemPatterns.md 裡的相關內容」
-你：「確認」
-Opus → 建立 skills/error-handling.md + 更新 systemPatterns.md
-```
+切專案時 Cline 會自動載入對應的 MCP server。
 
-Skill 會自動注入到每次對話的上下文，Opus 就會記住這些規則。
+---
 
 ## 為什麼用 MCP
 
 | 之前 | 現在 |
 |------|------|
-| 跑 `python forge.py umb` | Opus 呼叫 `forge_umb` |
-| 手動檢查 memory | Opus 自動呼叫 `forge_health` |
+| 跑 `python forge.py umb` | Cline 自動呼叫 `forge_umb` |
+| 手動檢查 memory | Cline 自動呼叫 `forge_health` |
 | 跳出 Cline 打斷心流 | 全程在 Cline 裡，零中斷 |
-| 容易忘記存記憶 | .clinerules 強制 commit 後提議 |
-| 不確定什麼時候該做什麼 | Opus 讀 .clinerules 自動執行 |
+| 容易忘記存記憶 | .clinerules 強制 commit 後自動存 |
+| 不確定什麼時候該做什麼 | Cline 讀 .clinerules 自動執行 |
 
-**核心：Opus 是你的 SOP 執行者。你只需要確認理解、看結果、決定下一步。**
+**核心：Cline 是你的 SOP 執行者。你只需要確認理解、看結果、決定下一步。**
+
+---
 
 ## 參考
 

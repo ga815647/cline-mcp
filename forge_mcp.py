@@ -44,10 +44,51 @@ def forge_health() -> str:
     """檢查 memory-bank 健康狀態。回傳膨脹警告和瘦身建議。
     開對話時呼叫一次，掌握記憶狀態。"""
 
+    lines_out: list[str] = ["=== 設定檢查 ===", ""]
+
+    # ── Setup Check ──
+    setup_ok = True
+    
+    if not MEMORY_DIR.exists():
+        lines_out.append("❌ memory-bank/ 不存在 → 請呼叫 forge_init")
+        setup_ok = False
+    else:
+        lines_out.append("✅ memory-bank/ 存在")
+        missing_files = [f for f in MEMORY_FILES if not (MEMORY_DIR / f).exists()]
+        if missing_files:
+            lines_out.append(f"❌ 缺少檔案：{', '.join(missing_files)} → 請呼叫 forge_init")
+            setup_ok = False
+        else:
+            lines_out.append("✅ 6 個記憶檔案完整")
+
+    if not Path(".clinerules").exists():
+        lines_out.append("❌ .clinerules 不存在 → 請呼叫 forge_init")
+        setup_ok = False
+    else:
+        lines_out.append("✅ .clinerules 存在")
+
+    if not SKILLS_DIR.is_dir():
+        lines_out.append("❌ skills/ 不存在 → 請呼叫 forge_init")
+        setup_ok = False
+    else:
+        lines_out.append("✅ skills/ 存在")
+
+    lines_out.append("")
+    if not setup_ok:
+        lines_out.append("⚠️ 提醒：確認 Cline MCP 設定有加 autoApprove：")
+        lines_out.append('   "autoApprove": ["forge_health", "forge_umb", "forge_lessons", "forge_clean"]')
+        lines_out.append("")
+        lines_out.append("❗ 請先完成以上設定再開始工作。")
+        return "\n".join(lines_out)
+    else:
+        lines_out.append("✅ 所有設定完成")
+        lines_out.append("")
+
     if not MEMORY_DIR.exists():
         return "⚠️ memory-bank/ 不存在。請呼叫 forge_init"
 
-    lines_out: list[str] = ["=== Memory Bank 狀態 ===", ""]
+    lines_out.append("=== Memory Bank 狀態 ===")
+    lines_out.append("")
     total_tokens = 0
     bloated: list[str] = []
 
@@ -77,15 +118,23 @@ def forge_health() -> str:
     if bloated:
         lines_out.append("")
         lines_out.append("🧹 瘦身建議：")
+        
+        # auto-trim 的檔案
         if "progress.md" in bloated:
-            lines_out.append("  progress.md → 只保留最近 20 行")
+            lines_out.append("  progress.md → 自動裁剪到 20 行（無需手動）")
         if "decisionLog.md" in bloated:
-            lines_out.append("  decisionLog.md → 已落實的搬進 skills/")
-        if "systemPatterns.md" in bloated:
-            lines_out.append("  systemPatterns.md → 跑 forge_lessons，提煉成 skill")
-        for f in bloated:
-            if f not in ("progress.md", "decisionLog.md", "systemPatterns.md"):
-                lines_out.append(f"  {f} → 壓縮到只留當前相關內容")
+            lines_out.append("  decisionLog.md → 自動裁剪到 50 行（無需手動）")
+        
+        # 需要手動介入的檔案
+        manual_bloated = [f for f in bloated if f not in ("progress.md", "decisionLog.md")]
+        if manual_bloated:
+            lines_out.append("")
+            lines_out.append("⚠️ 需要手動介入：")
+            if "systemPatterns.md" in manual_bloated:
+                lines_out.append("  systemPatterns.md → 跑 forge_lessons，提煉成 skill")
+            for f in manual_bloated:
+                if f != "systemPatterns.md":
+                    lines_out.append(f"  {f} → 壓縮到只留當前相關內容")
 
     # skills 狀態
     lines_out.append("")
@@ -182,6 +231,15 @@ def forge_umb(
         with open(MEMORY_DIR / "decisionLog.md", "a", encoding="utf-8") as f:
             f.write(f"- [{timestamp}] {decision}\n")
         results.append("✅ decisionLog.md 已追加")
+        
+        # Auto-trim decisionLog.md 到 50 行
+        decision_file = MEMORY_DIR / "decisionLog.md"
+        text = decision_file.read_text(encoding="utf-8")
+        lines = text.splitlines(keepends=True)
+        if len(lines) > 50:
+            trimmed = "".join(lines[-50:])
+            decision_file.write_text(trimmed, encoding="utf-8")
+            results.append("🔄 decisionLog.md 已自動裁剪到 50 行")
 
     if pattern:
         with open(MEMORY_DIR / "systemPatterns.md", "a", encoding="utf-8") as f:
@@ -218,11 +276,12 @@ def forge_init() -> str:
             "2. 收到模糊需求時，先用一段話複述你的理解（打算做什麼、影響範圍、假設），確認後再開始。\n\n"
             "3. 改完 code 後立即執行測試指令（pytest / npm test / make test）。不要只回報「已完成」——要實際跑測試並貼出結果。測試通過才 commit。\n\n"
             "4. 不要在 memory-bank/ 檔案裡記錄程式碼細節（變數名、API 列表），那些交給 codebase 本身。只記高階意圖與決策原因。\n\n"
-            "5. commit 後，用一段話總結這次改動的意圖和決策，詢問使用者是否要存進 memory-bank。使用者確認後才呼叫 forge_umb。不要自行決定記憶內容。\n\n"
+            "5. commit 後，直接呼叫 forge_umb 存入 context 和 decision。不需等使用者確認。\n"
+            "   只記高階意圖，不記程式碼細節。forge_umb 會自動裁剪膨脹的檔案。\n\n"
             "6. 看到 memory-bank 膨脹警告（🟡 或 🔴）時，主動建議瘦身方案，並協助使用者提煉成 skill。\n",
             encoding="utf-8",
         )
-        results.append("✅ 建立 .clinerules（MCP-native 版本）")
+        results.append("✅ 建立 .clinerules（B+ 自動記憶版本）")
     else:
         results.append("⏭️  .clinerules 已存在")
 
